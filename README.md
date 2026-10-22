@@ -9,29 +9,35 @@ A VR overlay for the Steam Frame that tells you when external power is lost, so 
 
 Tested on a Steam Frame. The images are renders of the toast design, not headset captures.
 
-## How it works
-
-- Polls `/sys/class/power_supply` once a second. Power is lost when the charger's `online` flag drops or the battery reports `Discharging`. Changes must hold 1.5 s, and the first reading never alerts.
-- Shows the icon as an OpenVR overlay attached to the headset, about 0.6 m ahead and slightly below.
-- The Frame can't see an external bank's charge level, so the icon only shows whether external power is present.
-- Runs as a systemd user service tied to `steamvr.service`. It never starts SteamVR itself.
-
 ## Install
 
-On the Frame, with Developer Mode and SSH enabled, copy the repo over and run:
+On the Frame, with Developer Mode and SSH enabled:
 
 ```sh
-./install.sh            # builds, installs to ~/.local/bin, enables the service
-./install.sh --uninstall
+curl -fsSL https://raw.githubusercontent.com/Emisune/frame-power-notifier/main/install.sh | bash
 ```
 
-Needs `cmake`, `ninja`, `g++` and the cairo dev files (all present on SteamOS). It builds against the OpenVR header and library that SteamVR ships in `/opt/steamvr`.
-
-## Commands
+This downloads the latest release, checks its checksum, and installs a systemd user service that starts with SteamVR. To remove it:
 
 ```sh
-frame-power-notifier --print   # show detected power_supply entries and the current reading
-frame-power-notifier --test    # show both toasts once SteamVR is up
+curl -fsSL https://raw.githubusercontent.com/Emisune/frame-power-notifier/main/install.sh | bash -s -- --uninstall
 ```
 
-If a SteamOS update renames the sysfs entries, `--print` shows what was found.
+## How it works
+
+- Polls `/sys/class/power_supply` once a second. Power is lost when the charger's `online` flag drops or the battery reports `Discharging`.
+- Battery-bank connections can be unstable, so the warning only shows after **2 minutes of continuous loss**. Any return of power restarts the window. The "power present" toast shows only after a warning, once power has been steady for 10 s.
+- The icon is an OpenVR overlay about 0.6 m ahead of you, slightly below eye level.
+- The Frame can't see an external bank's charge level, so the icon only says whether external power is present.
+- Every raw power change is logged: `journalctl --user -u frame-power-notifier -f`
+
+## Build from source
+
+On the Frame (needs `cmake`, `ninja`, `g++` and the cairo dev files, all present on SteamOS):
+
+```sh
+cmake -G Ninja -S . -B build && cmake --build build
+./install.sh --binary build/frame-power-notifier
+```
+
+`frame-power-notifier --print` shows the detected power entries; `--test` shows both toasts. Releases are built by GitHub Actions on every `v*` tag.

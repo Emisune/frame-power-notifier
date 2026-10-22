@@ -3,7 +3,8 @@
 #include <openvr.h>
 
 #include <chrono>
-#include <string>
+
+#include "icon.h"
 
 // A small HMD-attached toast: a battery with a bolt (external power) or a cross
 // (external power gone). show() draws it with cairo
@@ -11,7 +12,7 @@
 // called every ~50 ms.
 class Overlay {
 public:
-    enum class Icon { Charging, NotCharging };
+    using Icon = ::Icon;
 
     ~Overlay();
     bool init();  // connects to a running SteamVR; false if it is not up

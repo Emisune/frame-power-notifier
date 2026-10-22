@@ -1,9 +1,10 @@
 #include <csignal>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
-#include <string>
 #include <thread>
 
+#include "alert.h"
 #include "overlay.h"
 #include "power.h"
 
@@ -15,8 +16,21 @@ void onSignal(int) { gStop = 1; }
 constexpr auto kPollInterval = std::chrono::milliseconds(1000);
 constexpr auto kTickInterval = std::chrono::milliseconds(50);
 constexpr auto kReconnectInterval = std::chrono::seconds(3);
-// A state must hold this long before we alert, to swallow connector flicker.
-constexpr auto kDebounce = std::chrono::milliseconds(1500);
+constexpr auto kDefaultLossConfirm = std::chrono::seconds(120);
+constexpr auto kRestoreConfirm = std::chrono::seconds(10);
+
+// FRAME_POWER_LOSS_SECONDS shortens the 2-minute window, for testing.
+std::chrono::seconds lossConfirm() {
+    if (const char* v = std::getenv("FRAME_POWER_LOSS_SECONDS")) {
+        long n = std::atol(v);
+        if (n > 0) return std::chrono::seconds(n);
+    }
+    return kDefaultLossConfirm;
+}
+
+const char* name(PowerState s) {
+    return s == PowerState::Charging ? "power" : s == PowerState::NotCharging ? "battery" : "unknown";
+}
 
 }  // namespace
 
@@ -37,12 +51,13 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, onSignal);
     std::signal(SIGTERM, onSignal);
 
-    Overlay overlay;
     using clock = std::chrono::steady_clock;
+    Overlay overlay;
+    AlertTracker tracker(lossConfirm(), kRestoreConfirm);
+    std::printf("alerting after %lds without external power\n",
+                static_cast<long>(lossConfirm().count()));
 
-    PowerState stable = PowerState::Unknown;     // last state we alerted on / saw at start
-    PowerState pending = PowerState::Unknown;    // candidate new state
-    clock::time_point pendingSince;
+    PowerState lastSeen = PowerState::Unknown;
     clock::time_point nextPoll = clock::now();
     clock::time_point nextReconnect = clock::now();
     int testStage = 0;  // --test: 1 = waiting to show the charging icon
@@ -70,20 +85,25 @@ int main(int argc, char** argv) {
             PowerSample s = power.read();
             if (s.state == PowerState::Unknown) {
                 power.discover();  // sysfs entries can appear late
-            } else if (stable == PowerState::Unknown) {
-                stable = s.state;  // first reading: remember, don't alert
-            } else if (s.state == stable) {
-                pending = PowerState::Unknown;
-            } else if (s.state != pending) {
-                pending = s.state;
-                pendingSince = now;
-            } else if (now - pendingSince >= kDebounce) {
-                stable = s.state;
-                pending = PowerState::Unknown;
-                bool charging = stable == PowerState::Charging;
-                std::printf("%s (%d%%, status='%s')\n", charging ? "Charging" : "Not charging",
-                            s.percent, s.status.c_str());
-                overlay.show(charging ? Overlay::Icon::Charging : Overlay::Icon::NotCharging);
+            } else {
+                // Log every raw change so a flaky connection shows up in the journal.
+                if (s.state != lastSeen) {
+                    std::printf("on %s (status='%s', battery %d%%)\n", name(s.state),
+                                s.status.c_str(), s.percent);
+                    lastSeen = s.state;
+                }
+                switch (tracker.update(s.state, now)) {
+                    case AlertTracker::Event::PowerLost:
+                        std::printf("ALERT: external power lost\n");
+                        overlay.show(Overlay::Icon::NotCharging);
+                        break;
+                    case AlertTracker::Event::PowerRestored:
+                        std::printf("external power restored\n");
+                        overlay.show(Overlay::Icon::Charging);
+                        break;
+                    case AlertTracker::Event::None:
+                        break;
+                }
             }
         }
 
