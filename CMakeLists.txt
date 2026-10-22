@@ -7,15 +7,20 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(CAIRO REQUIRED cairo)
 
-# openvr.h is not vendored here; see README ("Getting the OpenVR SDK").
+# openvr.h is not vendored here. Use third_party/openvr/ if present, otherwise the
+# copy SteamVR ships on the Frame (see README, "Getting the OpenVR SDK").
 set(OPENVR_DIR ${CMAKE_SOURCE_DIR}/third_party/openvr)
 if(NOT EXISTS ${OPENVR_DIR}/openvr.h)
-  message(FATAL_ERROR "Missing ${OPENVR_DIR}/openvr.h - see README")
+  set(OPENVR_DIR /opt/steamvr/tools/hellovr_vulkan_linux/src/openvr/headers)
+endif()
+if(NOT EXISTS ${OPENVR_DIR}/openvr.h)
+  message(FATAL_ERROR "Missing openvr.h - see README")
 endif()
 
 # SteamVR ships libopenvr_api.so; point OPENVR_LIB at it if it is not found.
 find_library(OPENVR_LIB openvr_api
-  HINTS $ENV{HOME}/.local/share/Steam/steamapps/common/SteamVR/bin/linuxarm64
+  HINTS /opt/steamvr/bin/linuxarm64
+        $ENV{HOME}/.local/share/Steam/steamapps/common/SteamVR/bin/linuxarm64
         $ENV{HOME}/.local/share/Steam/steamapps/common/SteamVR/bin/linux64
         ${OPENVR_DIR}/lib)
 if(NOT OPENVR_LIB)

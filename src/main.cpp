@@ -21,6 +21,10 @@ constexpr auto kDebounce = std::chrono::milliseconds(1500);
 }  // namespace
 
 int main(int argc, char** argv) {
+    // Under systemd stdout is a pipe and fully buffered; flush per line so the
+    // journal shows events as they happen.
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);
+
     PowerMonitor power;
     power.discover();
 

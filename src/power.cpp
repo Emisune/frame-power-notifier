@@ -45,9 +45,15 @@ PowerSample PowerMonitor::read() const {
         std::string cap = readFile(batteryDir_ + "/capacity");
         if (!cap.empty()) s.percent = std::atoi(cap.c_str());
     }
-    // The charger's "online" flag is the primary signal; battery status is the
-    // fallback. "Not charging" (full battery on a charger) counts as plugged in
-    // only if the charger says so.
+    // Observed on a Frame: unplugging drops the charger's "online" to 0 and the
+    // battery status to "Discharging" together. A sagging power bank can keep
+    // "online" at 1 while the battery still drains, which is also the "swap the
+    // bank" case, so a Discharging battery wins. "Not charging" (full battery
+    // on a charger) is left to the charger's "online" flag.
+    if (s.status == "Discharging") {
+        s.state = PowerState::NotCharging;
+        return s;
+    }
     if (!chargerDir_.empty()) {
         std::string online = readFile(chargerDir_ + "/online");
         if (!online.empty()) {
