@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="128" viewBox="0 0 256 128">
+  <title>External power gone</title>
+  <!-- Mirrors renderIcon(Icon::NotCharging) in src/icon.cpp -->
+  <rect width="256" height="128" rx="22" fill="#121217" fill-opacity="0.94"/>
+  <rect x="47" y="37" width="142" height="54" fill="#eb4747" fill-opacity="0.35"/>
+  <rect x="40" y="30" width="156" height="68" rx="10" fill="none" stroke="#fff" stroke-width="6"/>
+  <rect x="199" y="51" width="13" height="26" rx="4" fill="#fff"/>
+  <g stroke-linecap="round" fill="none">
+    <path d="M84 36 L152 92 M152 36 L84 92" stroke="#121217" stroke-width="22"/>
+    <path d="M84 36 L152 92 M152 36 L84 92" stroke="#f24040" stroke-width="11"/>
+  </g>
+</svg>

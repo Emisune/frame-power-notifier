@@ -17,6 +17,17 @@ OpenVR overlay app run as a systemd user service tied to `steamvr.service`.
   with a cross means external power is gone (6 s). It then fades out. There is no charge level:
   the Frame can't see an external battery bank's level.
 
+## What the toasts look like
+
+| External power present | External power gone |
+| :---: | :---: |
+| ![Battery with a lightning bolt](docs/power-present.svg) | ![Battery with a cross](docs/power-lost.svg) |
+| shows for 3 s | shows for 6 s |
+
+These are vector renders of the toast design (same coordinates and colors as the drawing code),
+not captures from inside the headset. In the headset the toast floats low in front of you at
+about 16 cm wide.
+
 ## Build and install (on the headset)
 
 Requires Developer Mode and SSH. The toolchain (cmake, ninja, g++, cairo dev files) is expected
