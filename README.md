@@ -1,64 +1,37 @@
 # frame-power-notifier
 
-A small VR overlay for the Steam Frame that pops up a toast when the headset starts or stops charging.
-
-Unofficial and untested on real hardware as of the first commit. The approach follows
-[frame-perf-overlay](https://github.com/sasaken1102r/frame-perf-overlay) (MIT): a native aarch64
-OpenVR overlay app run as a systemd user service tied to `steamvr.service`.
-
-## How it works
-
-- `src/power.cpp` polls `/sys/class/power_supply` once a second. The charger entry's `online`
-  flag is the main signal; the battery's `status` text is the fallback.
-- A change must hold for 1.5 s before it alerts. The first reading after start never alerts.
-- `src/overlay.cpp` connects to a running SteamVR as an overlay app (it never launches SteamVR),
-  draws a battery icon with cairo, uploads it with `SetOverlayRaw`, and attaches it to the HMD
-  about 0.6 m ahead. A battery with a bolt means external power is present (3 s); a battery
-  with a cross means external power is gone (6 s). It then fades out. There is no charge level:
-  the Frame can't see an external battery bank's level.
-
-## What the toasts look like
+A VR overlay for the Steam Frame that tells you when external power is lost, so you can swap the battery bank in time.
 
 | External power present | External power gone |
 | :---: | :---: |
 | ![Battery with a lightning bolt](docs/power-present.svg) | ![Battery with a cross](docs/power-lost.svg) |
-| shows for 3 s | shows for 6 s |
+| shown for 3 s | shown for 6 s |
 
-These are vector renders of the toast design (same coordinates and colors as the drawing code),
-not captures from inside the headset. In the headset the toast floats low in front of you at
-about 16 cm wide.
+Tested on a Steam Frame. The images are renders of the toast design, not headset captures.
 
-## Build and install (on the headset)
+## How it works
 
-Requires Developer Mode and SSH. The toolchain (cmake, ninja, g++, cairo dev files) is expected
-to be present on SteamOS, as it is for frame-perf-overlay.
+- Polls `/sys/class/power_supply` once a second. Power is lost when the charger's `online` flag drops or the battery reports `Discharging`. Changes must hold 1.5 s, and the first reading never alerts.
+- Shows the icon as an OpenVR overlay attached to the headset, about 0.6 m ahead and slightly below.
+- The Frame can't see an external bank's charge level, so the icon only shows whether external power is present.
+- Runs as a systemd user service tied to `steamvr.service`. It never starts SteamVR itself.
 
-### Getting the OpenVR SDK
+## Install
 
-`openvr.h` is not committed. Put the header from the
-[OpenVR SDK](https://github.com/ValveSoftware/openvr) (`headers/openvr.h`) in
-`third_party/openvr/`. `libopenvr_api.so` comes with SteamVR; if CMake can't find it, pass
-`-DOPENVR_LIB=/path/to/libopenvr_api.so`.
+On the Frame, with Developer Mode and SSH enabled, copy the repo over and run:
 
 ```sh
-scp -r . steamos@<headset-ip>:frame-power-notifier
-ssh steamos@<headset-ip>
-cd frame-power-notifier && ./install.sh
-```
-
-Useful commands:
-
-```sh
-frame-power-notifier --print   # list detected power_supply entries and current reading
-frame-power-notifier --test    # show a test toast as soon as SteamVR is up
+./install.sh            # builds, installs to ~/.local/bin, enables the service
 ./install.sh --uninstall
 ```
 
-## Open questions
+Needs `cmake`, `ninja`, `g++` and the cairo dev files (all present on SteamOS). It builds against the OpenVR header and library that SteamVR ships in `/opt/steamvr`.
 
-- Verified on one Frame by manual unplug/replug: `pm8550b-charger/online` and the battery
-  `status` flip together. Not yet verified with a bank that actually runs flat, which may sag
-  without disconnecting; a `Discharging` battery is treated as power lost for that reason.
-- `SetOverlayRaw` renders correctly on the Frame, so no Vulkan texture path is needed.
-- Run `frame-power-notifier --print` to see the detected sysfs entries if a SteamOS update
-  renames them.
+## Commands
+
+```sh
+frame-power-notifier --print   # show detected power_supply entries and the current reading
+frame-power-notifier --test    # show both toasts once SteamVR is up
+```
+
+If a SteamOS update renames the sysfs entries, `--print` shows what was found.
