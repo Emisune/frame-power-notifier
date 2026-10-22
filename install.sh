@@ -84,7 +84,8 @@ install_from() {
 download() {
     local tmp
     tmp=$(mktemp -d)
-    trap 'rm -rf "$tmp"' EXIT
+    # Double quotes: expand now, since $tmp is out of scope when the trap fires.
+    trap "rm -rf '$tmp'" EXIT
     local base="https://github.com/$REPO/releases/latest/download"
     curl -fsSL "$base/$ASSET" -o "$tmp/$ASSET"
     curl -fsSL "$base/SHA256SUMS" -o "$tmp/SHA256SUMS"
