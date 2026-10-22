@@ -12,8 +12,10 @@ OpenVR overlay app run as a systemd user service tied to `steamvr.service`.
   flag is the main signal; the battery's `status` text is the fallback.
 - A change must hold for 1.5 s before it alerts. The first reading after start never alerts.
 - `src/overlay.cpp` connects to a running SteamVR as an overlay app (it never launches SteamVR),
-  renders text with cairo, uploads it with `SetOverlayRaw`, and attaches it to the HMD about
-  0.6 m ahead. It holds for 3 s, then fades out.
+  draws a battery icon with cairo, uploads it with `SetOverlayRaw`, and attaches it to the HMD
+  about 0.6 m ahead. A battery with a bolt means external power is present (3 s); a battery
+  with a cross means external power is gone (6 s). It then fades out. There is no charge level:
+  the Frame can't see an external battery bank's level.
 
 ## Build and install (on the headset)
 
@@ -43,7 +45,9 @@ frame-power-notifier --test    # show a test toast as soon as SteamVR is up
 
 ## Open questions
 
-- Which `status` and `online` values the Frame reports has not been checked. Run `--print`
-  while plugging and unplugging and adjust `PowerMonitor::read()` if needed.
-- Whether `SetOverlayRaw` works as expected on the Frame; if not, switch to a Vulkan texture
-  as frame-perf-overlay does.
+- Verified on one Frame by manual unplug/replug: `pm8550b-charger/online` and the battery
+  `status` flip together. Not yet verified with a bank that actually runs flat, which may sag
+  without disconnecting; a `Discharging` battery is treated as power lost for that reason.
+- `SetOverlayRaw` renders correctly on the Frame, so no Vulkan texture path is needed.
+- Run `frame-power-notifier --print` to see the detected sysfs entries if a SteamOS update
+  renames them.

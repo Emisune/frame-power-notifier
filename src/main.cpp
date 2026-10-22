@@ -45,6 +45,8 @@ int main(int argc, char** argv) {
     clock::time_point pendingSince;
     clock::time_point nextPoll = clock::now();
     clock::time_point nextReconnect = clock::now();
+    int testStage = 0;  // --test: 1 = waiting to show the charging icon
+    clock::time_point testNext;
 
     while (!gStop) {
         auto now = clock::now();
@@ -52,7 +54,12 @@ int main(int argc, char** argv) {
         if (!overlay.connected() && now >= nextReconnect) {
             if (overlay.init()) {
                 std::printf("connected to SteamVR\n");
-                if (test) overlay.show("Test alert", "frame-power-notifier");
+                if (test) {
+                    // --test shows both icons, one after the other.
+                    overlay.show(Overlay::Icon::NotCharging);
+                    testStage = 1;
+                    testNext = now + std::chrono::seconds(8);
+                }
             } else {
                 nextReconnect = now + kReconnectInterval;
             }
@@ -73,12 +80,16 @@ int main(int argc, char** argv) {
             } else if (now - pendingSince >= kDebounce) {
                 stable = s.state;
                 pending = PowerState::Unknown;
-                std::string pct = s.percent >= 0 ? std::to_string(s.percent) + "%" : "";
-                const char* title =
-                    stable == PowerState::Charging ? "Charging" : "Not charging";
-                std::printf("%s (%s, status='%s')\n", title, pct.c_str(), s.status.c_str());
-                overlay.show(title, pct.empty() ? "" : "Battery " + pct);
+                bool charging = stable == PowerState::Charging;
+                std::printf("%s (%d%%, status='%s')\n", charging ? "Charging" : "Not charging",
+                            s.percent, s.status.c_str());
+                overlay.show(charging ? Overlay::Icon::Charging : Overlay::Icon::NotCharging);
             }
+        }
+
+        if (testStage == 1 && now >= testNext) {
+            overlay.show(Overlay::Icon::Charging);
+            testStage = 0;
         }
 
         overlay.tick();
